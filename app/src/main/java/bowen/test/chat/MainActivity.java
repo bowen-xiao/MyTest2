@@ -1,8 +1,11 @@
 package bowen.test.chat;
 
 import androidx.appcompat.app.AppCompatActivity;
+import bowen.test.chat.adapter.ChatListAdapter;
+import bowen.test.chat.bean.MessageBean;
 
 import android.content.Context;
+import android.database.DataSetObserver;
 import android.net.wifi.WifiInfo;
 import android.net.wifi.WifiManager;
 import android.os.Bundle;
@@ -11,8 +14,11 @@ import android.os.Message;
 import android.text.TextUtils;
 import android.util.Log;
 import android.view.View;
+import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.ListAdapter;
+import android.widget.ListView;
 import android.widget.ScrollView;
 import android.widget.TextView;
 
@@ -38,20 +44,23 @@ import java.util.concurrent.locks.ReentrantLock;
 public class MainActivity extends AppCompatActivity {
 
     private static final String TAG =  "MainActivity";
-    TextView mListMsg;
-    ScrollView mScrollView;
+//    TextView mListMsg;
+//    ScrollView mScrollView;
     Button mBtnSend;
     EditText mInputText;
+    ListView mList;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        mListMsg = findViewById(R.id.tv_list_clients);
-        mScrollView = findViewById(R.id.main_scrollview);
+//        mListMsg = findViewById(R.id.tv_list_clients);
+//        mScrollView = findViewById(R.id.main_scrollview);
         mBtnSend = findViewById(R.id.btn_send);
         mInputText = findViewById(R.id.et_input);
+        mList = findViewById(R.id.lv_chat_list);
         //消息处理
         initHandler();
+        initListAdapter();
         //UI数据展示进程
         showThread();
         //心跳轮询
@@ -60,6 +69,13 @@ public class MainActivity extends AppCompatActivity {
         startReceived();
         //点击事件处理
         initBtnListener();
+    }
+
+    ChatListAdapter mAdapter;
+    List<MessageBean> mDatas = new ArrayList<>();
+    void initListAdapter(){
+        mAdapter = new ChatListAdapter(this,mDatas);
+        mList.setAdapter(mAdapter);
     }
 
 
@@ -85,7 +101,7 @@ public class MainActivity extends AppCompatActivity {
                     Iterator<String> iterator = mReqList.iterator();
                     while (iterator.hasNext()){
                         String next = iterator.next();
-                        sendMsg(next,PORT,asciis);
+                        sendMsg(next,asciis);
                     }
                 }
             }.start();
@@ -106,9 +122,9 @@ public class MainActivity extends AppCompatActivity {
         new Thread(){
             @Override
             public void run() {
-                while (true){
+                //while (true){
                     seekClients();
-                }
+                //}
             }
         }.start();
     }
@@ -129,9 +145,9 @@ public class MainActivity extends AppCompatActivity {
             logE("开始找朋友");
             for (int i = 0; i < 250; i++) {
                 String hostAddress = firstName + i;
-                sendMsg(hostAddress,PORT,askCode.getBytes());
+                sendMsg(hostAddress,askCode.getBytes());
             }
-            Thread.sleep(3000L);
+            //Thread.sleep(8000L);
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -139,11 +155,11 @@ public class MainActivity extends AppCompatActivity {
     }
 
     DatagramSocket mSendSocket;
-    private void sendMsg (String address,int port,byte[] data){
+    private void sendMsg (String address,byte[] data){
 
         try {
             InetAddress host = InetAddress.getByName(address);
-            DatagramPacket response = new DatagramPacket(data, data.length, host, port);
+            DatagramPacket response = new DatagramPacket(data, data.length, host, PORT);
             mSendSocket.send(response);
 //            logE("发送消息 address:: " + address + " ::port: " + port + " :data:" + new String(data,"ASCII") );
         } catch (UnsupportedEncodingException e) {
@@ -198,20 +214,20 @@ public class MainActivity extends AppCompatActivity {
             public void handleMessage(Message msg) {
                 switch (msg.what){
                     case MSG_RECIEVER:
-                        updateUi((String) msg.obj);
+                        updateUi((MessageBean) msg.obj);
                         break;
                 }
             }
         };
     }
 
-    private void updateUi(String str){
-        StringBuilder sb = new StringBuilder();
-        String text = mListMsg.getText().toString();
-        sb.append(text);
-        sb.append("\n" + str);
-        mListMsg.setText(sb.toString());
-        mScrollView.fullScroll(ScrollView.FOCUS_DOWN);
+    private void updateUi(MessageBean bean){
+//        StringBuilder sb = new StringBuilder();
+        mDatas.add(bean);
+        mAdapter.notifyDataSetChanged();
+        mList.smoothScrollToPosition(mDatas.size());
+//        mListMsg.setText(sb.toString());
+//        mScrollView.fullScroll(ScrollView.FOCUS_DOWN);
     }
 
     private static ReentrantLock mMessageLock = new ReentrantLock();
@@ -233,7 +249,7 @@ public class MainActivity extends AppCompatActivity {
             if(mMessageQue != null && mMessageQue.size() != 0){
 //                showData();
                 for (int i = 0; i < mMessageQue.size(); i++) {
-                    String bytes = mMessageQue.get(i);
+                    MessageBean bytes = mMessageQue.get(i);
                     Message message = mHandler.obtainMessage();
                     message.what =  MSG_RECIEVER;
                     message.obj = bytes;
@@ -252,7 +268,7 @@ public class MainActivity extends AppCompatActivity {
     private final static int PORT = 6986;
 
     static Set<String> mReqList = new HashSet<>();
-    static LinkedList<String> mMessageQue = new LinkedList<>();
+    static LinkedList<MessageBean> mMessageQue = new LinkedList<>();
     void startReceived(){
         new Thread(){
             @Override
@@ -284,7 +300,14 @@ public class MainActivity extends AppCompatActivity {
                      System.out.println("reqData： " + reqData);
                      String showData = " \n " +  address.getHostName() + ":" + port + "   :: " +time+" \n 说: " + reqData;
                     if(!reqData.equals(askCode) && !reqData.equals(askCodeReplay)){
-                        mMessageQue.add(showData);
+
+                        MessageBean bean = new MessageBean();
+                        bean.setMessage(reqData);
+                        bean.setTime(time);
+                        bean.setAddress(address.getHostName());
+                        bean.setSelf(mIpAddress.equals(address.getHostName()));
+
+                        mMessageQue.add(bean);
                     }
                     logE("------收到消息 : " + showData);
 //                    consumeCondition.signal();
@@ -296,7 +319,7 @@ public class MainActivity extends AppCompatActivity {
                     if(!mIpAddress.equals(address.getHostName()) && askCode.equals(reqData)){
                         byte[] data = askCodeReplay.getBytes();
                         logE("------回复消息222 : " + new String(data));
-                        sendMsg(address.getHostName(),port,data);
+                        sendMsg(address.getHostName(),data);
                     }
             }
         } catch (SocketException e) {

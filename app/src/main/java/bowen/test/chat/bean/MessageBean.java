@@ -6,6 +6,15 @@ public class MessageBean implements Serializable {
     String address;
     String message;
     String time;
+    boolean isSelf;
+
+    public boolean isSelf() {
+        return isSelf;
+    }
+
+    public void setSelf(boolean self) {
+        isSelf = self;
+    }
 
     public String getAddress() {
         return address;
