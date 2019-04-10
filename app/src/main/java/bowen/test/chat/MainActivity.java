@@ -131,6 +131,7 @@ public class MainActivity extends AppCompatActivity {
 
     String askCode = "111111";
     String askCodeReplay = "111222";
+    String askCodeExit = "222222";
     String mIpAddress;
     //扫描主机
     private void seekClients() {
@@ -299,7 +300,11 @@ public class MainActivity extends AppCompatActivity {
                      String time = format.format(Calendar.getInstance().getTime());
                      System.out.println("reqData： " + reqData);
                      String showData = " \n " +  address.getHostName() + ":" + port + "   :: " +time+" \n 说: " + reqData;
-                    if(!reqData.equals(askCode) && !reqData.equals(askCodeReplay)){
+                    if(!reqData.equals(askCode)
+                            && !reqData.equals(askCodeReplay)
+                            //退出程序
+                            && !reqData.equals(askCodeExit)
+                    ){
 
                         MessageBean bean = new MessageBean();
                         bean.setMessage(reqData);
@@ -309,7 +314,12 @@ public class MainActivity extends AppCompatActivity {
 
                         mMessageQue.add(bean);
                     }
+                    if(reqData.equals(askCodeExit)){
+                        //为退出项
+                        mReqList.remove(address.getHostName());
+                    }
                     logE("------收到消息 : " + showData);
+                    logE("------mReqList size : " + mReqList.size());
 //                    consumeCondition.signal();
                     mMessageLock.unlock();
                     //2)回复信息
@@ -329,6 +339,22 @@ public class MainActivity extends AppCompatActivity {
         } catch (IOException e) {
             e.printStackTrace();
         }
+    }
+
+    @Override
+    protected void onDestroy() {
+        sendExitCmd();
+        super.onDestroy();
+    }
+
+    //退出程序时发出的消息
+    private void sendExitCmd() {
+        new Thread(){
+            @Override
+            public void run() {
+                sendMessageToFriends(askCodeExit);
+            }
+        }.start();
     }
 
     void logE(String msg){
