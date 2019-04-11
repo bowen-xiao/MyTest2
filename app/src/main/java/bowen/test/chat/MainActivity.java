@@ -207,6 +207,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     final static int MSG_RECIEVER = 128233;
+    final static int MSG_UPDATE_TITLE = 892365;
     Handler mHandler;
     //初始化
     private void initHandler() {
@@ -216,6 +217,9 @@ public class MainActivity extends AppCompatActivity {
                 switch (msg.what){
                     case MSG_RECIEVER:
                         updateUi((MessageBean) msg.obj);
+                        break;
+                    case MSG_UPDATE_TITLE:
+                        setTitle((String)msg.obj);
                         break;
                 }
             }
@@ -292,15 +296,19 @@ public class MainActivity extends AppCompatActivity {
                     SocketAddress socketAddress = request.getSocketAddress();
                     int port = request.getPort();
                     mMessageLock.lock();
-                    //将物理地址添加进去
-                    mReqList.add(address.getHostName());
+
                     String reqData = new String(requestData,0,length);
 
                      SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
                      String time = format.format(Calendar.getInstance().getTime());
                      System.out.println("reqData： " + reqData);
                      String showData = " \n " +  address.getHostName() + ":" + port + "   :: " +time+" \n 说: " + reqData;
-                    if(!reqData.equals(askCode)
+                    if(reqData.equals(askCode) || reqData.equals(askCodeReplay)){
+                        //将物理地址添加进去
+                        mReqList.add(address.getHostName());
+                        updateTitle();
+                    }
+                     if(!reqData.equals(askCode)
                             && !reqData.equals(askCodeReplay)
                             //退出程序
                             && !reqData.equals(askCodeExit)
@@ -311,12 +319,13 @@ public class MainActivity extends AppCompatActivity {
                         bean.setTime(time);
                         bean.setAddress(address.getHostName());
                         bean.setSelf(mIpAddress.equals(address.getHostName()));
-
                         mMessageQue.add(bean);
+
                     }
                     if(reqData.equals(askCodeExit)){
                         //为退出项
                         mReqList.remove(address.getHostName());
+                        updateTitle();
                     }
                     logE("------收到消息 : " + showData);
                     logE("------mReqList size : " + mReqList.size());
@@ -339,6 +348,13 @@ public class MainActivity extends AppCompatActivity {
         } catch (IOException e) {
             e.printStackTrace();
         }
+    }
+
+    void updateTitle(){
+        Message message = mHandler.obtainMessage();
+        message.what = MSG_UPDATE_TITLE;
+        message.obj = "当前聊天室人数 : " + mReqList.size() + "人";
+        mHandler.sendMessage(message);
     }
 
     @Override

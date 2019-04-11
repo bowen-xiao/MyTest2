@@ -6,7 +6,16 @@ public class MessageBean implements Serializable {
     String address;
     String message;
     String time;
+    String name;
     boolean isSelf;
+
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
 
     public boolean isSelf() {
         return isSelf;
@@ -46,6 +55,7 @@ public class MessageBean implements Serializable {
                 "address='" + address + '\'' +
                 ", message='" + message + '\'' +
                 ", time='" + time + '\'' +
+                ", name='" + name + '\'' +
                 ", isSelf=" + isSelf +
                 '}';
     }
